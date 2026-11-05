@@ -3,9 +3,9 @@
   "tagline": "Precision built, ready for takeoff.",
   "link": "Source",
   "chain": "A",
-  "about": "Who you are and what you are good at. Replace this with two or three sentences.",
+  "about": "We manufacture and supply model airplanes for customers seeking affordable, high-quality aircraft models. Our company offers multiple airplane options, straightforward ordering, and reliable fulfillment.",
   "members": [
     { "name": "First Last", "github": "github-username", "role": "e.g. operations lead" }
   ],
-  "how_to_order": "Tell customers how to place an order with you. (The class will agree on a standard later; for now, write what you think works.)"
+  "how_to_order": "Open a GitHub Issue with the product, quantity, and requested delivery date."
 }
