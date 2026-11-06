@@ -5,7 +5,26 @@
   "chain": "Model Airplane Supply Chain",
   "about": "We manufacture and supply model airplanes for customers seeking affordable, high-quality aircraft models. Our company offers multiple airplane options, straightforward ordering, and reliable fulfillment.",
   "members": [
-    { "name": "Aria Westerberg", "github": "AriaWesterberg", "Planner":  "name": "Hogan Sinjem", "github": "Hogan-Sinjem", "Financial Management" : "name": "Nick Meyer", "github": "nickmey15", "Operation lead" :  "name": "Luke Miranda", "github": "lmiranda04", "Inventory Manager"}
+    {
+      "name": "Aria Westerberg",
+      "github": "AriaWesterberg",
+      "role": "Planner"
+    },
+    {
+      "name": "Hogan Sinjem",
+      "github": "Hogan-Sinjem",
+      "role": "Financial Management"
+    },
+    {
+      "name": "Nick Meyer",
+      "github": "nickmey15",
+      "role": "Operation Lead"
+    },
+    {
+      "name": "Luke Miranda",
+      "github": "lmiranda04",
+      "role": "Inventory Manager"
+    }
   ],
   "how_to_order": "Open a GitHub Issue with the product, quantity, and requested delivery date."
 }
