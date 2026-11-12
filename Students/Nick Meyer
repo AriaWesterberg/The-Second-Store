@@ -1,0 +1,782 @@
+Which Minnesota counties should we send the most trucks and storage space to during this year’s corn harvest?
+https://quickstats.nass.usda.gov/
+<!DOCTYPE html>
+<!--
+==========================================================================
+  MINNESOTA CORN HARVEST LOGISTICS PLANNER
+  Question: Which Minnesota counties should we send the most trucks and
+  storage space to during this year's corn harvest?
+
+  WHERE THE DATA COMES FROM (plain English)
+  -----------------------------------------
+  * All numbers are from the U.S. Department of Agriculture's National
+    Agricultural Statistics Service (USDA NASS). Their public database is
+    called "Quick Stats":  https://quickstats.nass.usda.gov/
+  * The query behind the built-in numbers is:
+        Program = SURVEY, Sector = CROPS, Commodity = CORN,
+        Data Item = "CORN, GRAIN - PRODUCTION, MEASURED IN BU",
+        Geographic Level = COUNTY, State = MINNESOTA
+    We keep only three fields from it: Year, County, Value (bushels).
+  * The built-in county figures (2021, 2022, 2023) were copied from NASS's
+    Minnesota "Corn County Estimates" reports, which publish the same
+    county numbers that appear in Quick Stats:
+        https://www.nass.usda.gov/Statistics_by_State/Minnesota/Publications/County_Estimates/2023/MN-CtyEst-Corn-02-23.pdf
+        https://www.nass.usda.gov/Statistics_by_State/Minnesota/Publications/County_Estimates/2024/MN-CtyEst-Corn-02-24.pdf
+  * NASS hides a county's number in some years (to protect individual
+    farms' privacy, or when too few reports came in). Those counties are
+    lumped into an "Other (combined) counties" row. That is why a few large
+    counties (for example Martin and Faribault in 2023) have a gap.
+  * Newer years (2024, 2025) can be added without editing this file: export
+    a CSV from Quick Stats using the query above and load it with the
+    "Load Quick Stats CSV" button. You can also try the live API option
+    (it needs a free key from https://quickstats.nass.usda.gov/api).
+
+  WHERE THE DATA IS STORED (plain English)
+  ----------------------------------------
+  * Everything lives inside this one HTML file. The built-in numbers are
+    in the JavaScript object called BUILT_IN_DATA, further down.
+  * When you load a CSV or call the API, those rows are kept only in your
+    browser's memory (the DATA object) while this page is open. Nothing is
+    uploaded anywhere and nothing is saved. Reload the page and you are
+    back to the built-in numbers.
+  * No external libraries, fonts or servers are used: the chart is drawn
+    with plain SVG by the code at the bottom of this file.
+==========================================================================
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Minnesota Corn Harvest: Where to Send Trucks & Storage</title>
+<style>
+  /* ---- Colors are defined once as roles, light and dark ---- */
+  :root {
+    color-scheme: light;
+    --surface-0: #f4f3ef;
+    --surface-1: #fcfcfb;
+    --border: #e2e1dc;
+    --grid: #ebeae5;
+    --text-primary: #0b0b0b;
+    --text-secondary: #52514e;
+    --text-muted: #7a7974;
+    --series-1: #2a78d6;
+    --series-1-soft: #b7d3f6;
+    --accent-ink: #1c5cab;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      color-scheme: dark;
+      --surface-0: #121211;
+      --surface-1: #1a1a19;
+      --border: #2e2e2c;
+      --grid: #262624;
+      --text-primary: #f0efec;
+      --text-secondary: #c3c2b7;
+      --text-muted: #8f8e86;
+      --series-1: #3987e5;
+      --series-1-soft: #184f95;
+      --accent-ink: #86b6ef;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--surface-0); color: var(--text-primary);
+    font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  .wrap { max-width: 1120px; margin: 0 auto; padding: 28px 20px 60px; }
+  h1 { font-size: 26px; line-height: 1.2; margin: 0 0 6px; letter-spacing: -0.01em; }
+  .sub { color: var(--text-secondary); margin: 0 0 20px; max-width: 760px; }
+  .card {
+    background: var(--surface-1); border: 1px solid var(--border);
+    border-radius: 12px; padding: 18px 20px; margin-bottom: 16px;
+  }
+  .answer { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; }
+  .tile .label { font-size: 12px; color: var(--text-muted); text-transform: uppercase; letter-spacing: .04em; }
+  .tile .big { font-size: 22px; font-weight: 650; margin-top: 2px; }
+  .tile .note { font-size: 13px; color: var(--text-secondary); }
+  .controls { display: flex; flex-wrap: wrap; gap: 14px 18px; align-items: flex-end; }
+  .ctl { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--text-secondary); }
+  select, input[type=number], input[type=text], input[type=password] {
+    font: inherit; font-size: 14px; color: var(--text-primary);
+    background: var(--surface-0); border: 1px solid var(--border);
+    border-radius: 8px; padding: 6px 8px; min-width: 150px;
+  }
+  input[type=number] { width: 150px; min-width: 0; }
+  input[type=range] { width: 160px; accent-color: var(--series-1); }
+  button, .filebtn {
+    font: inherit; font-size: 14px; cursor: pointer; color: var(--text-primary);
+    background: var(--surface-0); border: 1px solid var(--border);
+    border-radius: 8px; padding: 6px 12px;
+  }
+  button:hover, .filebtn:hover { border-color: var(--series-1); }
+  .filebtn input { display: none; }
+  .row-title { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+  h2 { font-size: 17px; margin: 0 0 4px; }
+  .muted { color: var(--text-muted); font-size: 13px; }
+  #chart { width: 100%; position: relative; }
+  #chart svg { display: block; width: 100%; height: auto; }
+  .tooltip {
+    position: fixed; pointer-events: none; z-index: 10; display: none;
+    background: var(--surface-1); color: var(--text-primary);
+    border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px;
+    font-size: 13px; box-shadow: 0 4px 14px rgba(0,0,0,.12); max-width: 260px;
+  }
+  .tooltip b { font-weight: 650; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th, td { text-align: right; padding: 7px 8px; border-bottom: 1px solid var(--grid); white-space: nowrap; }
+  th { color: var(--text-secondary); font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: .03em; }
+  th:nth-child(2), td:nth-child(2), th:nth-child(3), td:nth-child(3) { text-align: left; }
+  tbody tr:hover { background: var(--surface-0); }
+  .tablewrap { overflow-x: auto; max-height: 520px; overflow-y: auto; }
+  .flag { color: var(--text-muted); }
+  .status { font-size: 13px; color: var(--text-secondary); margin-top: 8px; min-height: 1em; }
+  details summary { cursor: pointer; font-weight: 600; }
+  .src li { margin-bottom: 4px; }
+  a { color: var(--accent-ink); }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <h1>Where should trucks and storage go for the 2026 Minnesota corn harvest?</h1>
+  <p class="sub">Counties are ranked by their share of Minnesota's corn-for-grain production in past
+    USDA NASS county estimates. Each share is then applied to a statewide planning number for this
+    year, which gives estimated bushels, truckloads and storage per county. NASS won't publish county
+    numbers for the 2026 crop until 2027, so past county shares are the best guide we have right now.</p>
+
+  <!-- Headline answer: filled in by render() -->
+  <div class="card answer" id="answer"></div>
+
+  <!-- Filters: all in one row above the chart -->
+  <div class="card">
+    <div class="controls">
+      <label class="ctl">Crop
+        <select id="cropSel"></select>
+      </label>
+      <label class="ctl">Year
+        <select id="yearSel"></select>
+      </label>
+      <label class="ctl">County
+        <select id="countySel"></select>
+      </label>
+      <label class="ctl">Counties shown: <span id="topNLabel">15</span>
+        <input type="range" id="topN" min="5" max="40" value="15">
+      </label>
+      <label class="ctl">2026 statewide crop (bushels)
+        <input type="number" id="stateTotal" step="10000000" min="0">
+      </label>
+      <label class="ctl">Share hauled at harvest (%)
+        <input type="number" id="haulPct" min="0" max="100" value="100">
+      </label>
+      <label class="ctl">Bushels per truckload
+        <input type="number" id="buPerTruck" min="100" value="1000">
+      </label>
+    </div>
+    <p class="muted" style="margin:10px 0 0">
+      The statewide number defaults to the 2025 final estimate (1.70 billion bu, a record). Replace it with
+      USDA's latest Crop Production forecast or your own figure. A semi hopper trailer carries about
+      1,000 bushels. Lower "share hauled" if part of the crop stays in on-farm bins.
+    </p>
+  </div>
+
+  <!-- Chart -->
+  <div class="card">
+    <div class="row-title">
+      <div>
+        <h2 id="chartTitle">Corn for grain production by county</h2>
+        <div class="muted" id="chartSub"></div>
+      </div>
+    </div>
+    <div id="chart"></div>
+  </div>
+
+  <!-- Table view (same data as the chart, for exact numbers) -->
+  <div class="card">
+    <div class="row-title">
+      <h2>Planning table</h2>
+      <button id="dlBtn" type="button">Download table as CSV</button>
+    </div>
+    <div class="tablewrap">
+      <table>
+        <thead><tr>
+          <th>Rank</th><th>County</th><th>Ag district</th>
+          <th id="thBasis">Production (bu)</th><th>Share of state</th>
+          <th>2026 est. (bu)</th><th>Truckloads</th><th>Storage needed (bu)</th>
+        </tr></thead>
+        <tbody id="tbody"></tbody>
+      </table>
+    </div>
+    <p class="muted">* = NASS did not publish this county for every selected year. Its average uses
+      only the years that were published, and its share is compared against the statewide total for those same years.</p>
+  </div>
+
+  <!-- Bring in newer data -->
+  <div class="card">
+    <h2>Add newer years (2024, 2025) from Quick Stats</h2>
+    <p class="muted" style="margin-top:0">
+      In Quick Stats, choose SURVEY › CROPS › FIELD CROPS › CORN › "CORN, GRAIN - PRODUCTION, MEASURED IN BU" ›
+      COUNTY › MINNESOTA, pick your years, then <b>Get Data › Spreadsheet</b>. Load that CSV here.
+      Its rows replace the built-in numbers for any year they include. They stay in this browser tab only.
+    </p>
+    <div class="controls">
+      <label class="filebtn">Load Quick Stats CSV<input type="file" id="csvFile" accept=".csv,text/csv"></label>
+      <label class="ctl">or Quick Stats API key
+        <input type="password" id="apiKey" placeholder="paste key">
+      </label>
+      <button id="apiBtn" type="button">Fetch from API</button>
+      <button id="resetBtn" type="button">Reset to built-in data</button>
+    </div>
+    <div class="status" id="status"></div>
+  </div>
+
+  <div class="card">
+    <details>
+      <summary>How this works and its limits</summary>
+      <ul class="src">
+        <li><b>Ranking.</b> For each county: average production over the selected year(s), divided by the
+          Minnesota total for the same years. That gives a steady "share of the state crop".</li>
+        <li><b>2026 estimate.</b> Share × the statewide number you enter. Truckloads = estimate × share hauled ÷
+          bushels per truckload. Storage = estimate × share hauled.</li>
+        <li><b>Gaps.</b> NASS withholds some counties in some years. Those bushels are counted in the state
+          total but can't be credited to any one county.</li>
+        <li><b>Not included.</b> This year's weather by county, where elevators and bins already sit, and local
+          basis. Use the ranking to decide where to look first, then adjust for those local factors.</li>
+      </ul>
+      <p class="muted">Sources: USDA NASS Quick Stats (quickstats.nass.usda.gov); NASS Minnesota Corn County
+        Estimates, Feb 2023 and Feb 2024; NASS 2025 State Agriculture Overview for Minnesota (2025 corn for grain:
+        1,696,440,000 bu).</p>
+    </details>
+  </div>
+</div>
+
+<div class="tooltip" id="tip"></div>
+
+<script>
+/* ==========================================================================
+   BUILT-IN DATA
+   --------------------------------------------------------------------------
+   Source: USDA NASS Quick Stats, "CORN, GRAIN - PRODUCTION, MEASURED IN BU",
+   county level, Minnesota. Values were copied from the NASS Minnesota Corn
+   County Estimates reports (Feb 2023 for 2021, Feb 2024 for 2022-2023).
+   Shape: { county name: [2021, 2022, 2023] }, in bushels.
+   null = NASS did not publish that county that year (those bushels are inside
+   the "Other (combined) counties" row).
+   Stored right here in the file. Nothing is downloaded when the page opens.
+   ========================================================================== */
+const BUILT_IN_YEARS = [2021, 2022, 2023];
+const BUILT_IN_DATA = {
+  // Northwest
+  "Becker":[9788000,10334000,12997000], "Clay":[24102000,null,26823000], "Clearwater":[664000,null,null],
+  "Mahnomen":[4722000,6047000,8930000], "Marshall":[5690000,3167000,10074000], "Norman":[11557000,null,20231000],
+  "Polk":[10639000,13722000,19112000], "Red Lake":[2058000,3126000,4646000], "Roseau":[1520000,null,null],
+  // North Central
+  "Beltrami":[121400,390000,null], "Cass":[null,360000,375000], "Hubbard":[1679000,1025000,null],
+  "Itasca":[71400,97400,null], "Koochiching":[null,45000,null],
+  // West Central
+  "Big Stone":[19354000,14962000,20390000], "Chippewa":[27060000,27219000,28358000], "Douglas":[10556000,12659000,null],
+  "Grant":[23320000,21937000,25505000], "Lac qui Parle":[null,null,33304000], "Otter Tail":[23814000,28428000,30791000],
+  "Pope":[16767000,19129000,23156000], "Stevens":[23498000,17669000,25389000], "Swift":[null,32931000,38808000],
+  "Traverse":[26422000,19640000,29606000], "Wilkin":[20321000,18483000,18847000], "Yellow Medicine":[null,34552000,35802000],
+  // Central
+  "Benton":[4963000,7897000,7851000], "Carver":[9084000,9915000,9841000], "Kandiyohi":[null,null,31125000],
+  "McLeod":[21870000,20937000,20561000], "Meeker":[18605000,19856000,21856000], "Morrison":[7533000,15004000,11600000],
+  "Renville":[43164000,52892000,54578000], "Scott":[6713000,5931000,6409000], "Sherburne":[4442000,5023000,4382000],
+  "Sibley":[30400000,30692000,28081000], "Stearns":[26788000,29312000,37647000], "Todd":[9351000,10257000,9521000],
+  "Wadena":[1707000,2814000,2423000], "Wright":[11038000,13355000,14015000],
+  // East Central
+  "Aitkin":[75600,118000,90900], "Anoka":[457000,657000,null], "Carlton":[null,13300,17300],
+  "Chisago":[3787000,4167000,4025000], "Crow Wing":[713000,1450000,1026000], "Hennepin":[1549000,1705000,null],
+  "Isanti":[3446000,4593000,4412000], "Kanabec":[1507000,2329000,null], "Mille Lacs":[1924000,2973000,2322000],
+  "Pine":[2123000,2499000,2172000], "Washington":[2615000,2749000,2860000],
+  // Southwest
+  "Cottonwood":[31899000,35211000,35030000], "Jackson":[35398000,39759000,39098000], "Lincoln":[17909000,null,21453000],
+  "Lyon":[28327000,28706000,null], "Murray":[35213000,32527000,null], "Nobles":[39344000,38443000,38508000],
+  "Pipestone":[19667000,16037000,17426000], "Redwood":[40592000,44746000,41888000], "Rock":[26337000,25466000,null],
+  // South Central
+  "Blue Earth":[36232000,38817000,36852000], "Brown":[27238000,31665000,29714000], "Faribault":[39545000,42849000,null],
+  "Freeborn":[38440000,38915000,35444000], "Le Sueur":[16919000,17492000,16469000], "Martin":[39852000,45655000,null],
+  "Nicollet":[22882000,22327000,21630000], "Rice":[15566000,18229000,16736000], "Steele":[22346000,22708000,20509000],
+  "Waseca":[23067000,24048000,22418000], "Watonwan":[25414000,27391000,26142000],
+  // Southeast
+  "Dakota":[14701000,14398000,15197000], "Dodge":[null,26048000,22088000], "Fillmore":[33044000,32117000,30795000],
+  "Goodhue":[28637000,30540000,29600000], "Houston":[10823000,9074000,8903000], "Mower":[null,43513000,35456000],
+  "Olmsted":[20551000,22004000,18791000], "Wabasha":[17960000,17472000,null], "Winona":[13117000,13446000,12363000],
+  // Counties NASS withheld that year, added together (needed so shares add up to the state total)
+  "Other (combined) counties":[189081600,127886300,230830800]
+};
+// Published Minnesota totals, used to check the numbers above add up.
+const BUILT_IN_STATE_TOTALS = { 2021:1387680000, 2022:1460550000, 2023:1513300000 };
+// 2025 final statewide corn-for-grain production (NASS 2025 State Agriculture Overview).
+const DEFAULT_STATE_PLANNING_BU = 1696440000;
+
+// NASS Minnesota agricultural districts (used for labels only).
+const DISTRICTS = {
+  "Northwest":["Becker","Clay","Clearwater","Kittson","Lake of the Woods","Mahnomen","Marshall","Norman","Pennington","Polk","Red Lake","Roseau"],
+  "North Central":["Beltrami","Cass","Hubbard","Itasca","Koochiching"],
+  "Northeast":["Cook","Lake","St. Louis"],
+  "West Central":["Big Stone","Chippewa","Douglas","Grant","Lac qui Parle","Otter Tail","Pope","Stevens","Swift","Traverse","Wilkin","Yellow Medicine"],
+  "Central":["Benton","Carver","Kandiyohi","McLeod","Meeker","Morrison","Renville","Scott","Sherburne","Sibley","Stearns","Todd","Wadena","Wright"],
+  "East Central":["Aitkin","Anoka","Carlton","Chisago","Crow Wing","Hennepin","Isanti","Kanabec","Mille Lacs","Pine","Ramsey","Washington"],
+  "Southwest":["Cottonwood","Jackson","Lincoln","Lyon","Murray","Nobles","Pipestone","Redwood","Rock"],
+  "South Central":["Blue Earth","Brown","Faribault","Freeborn","Le Sueur","Martin","Nicollet","Rice","Steele","Waseca","Watonwan"],
+  "Southeast":["Dakota","Dodge","Fillmore","Goodhue","Houston","Mower","Olmsted","Wabasha","Winona"]
+};
+// Lookups keyed by UPPERCASE name, because Quick Stats exports county names in capitals.
+const DISTRICT_OF = {}, DISPLAY_NAME = {};
+for (const [d, list] of Object.entries(DISTRICTS)) for (const c of list) {
+  DISTRICT_OF[c.toUpperCase()] = d; DISPLAY_NAME[c.toUpperCase()] = c;
+}
+const OTHER_KEY = "OTHER (COMBINED) COUNTIES";
+DISPLAY_NAME[OTHER_KEY] = "Other (combined) counties";
+
+/* ==========================================================================
+   IN-MEMORY DATA STORE
+   DATA[crop][COUNTY_KEY][year] = bushels
+   Starts with the built-in numbers. CSV/API loads are merged in here and
+   live only as long as this browser tab stays open.
+   ========================================================================== */
+const BUILT_IN_CROP = "CORN, GRAIN";
+let DATA = {};
+function loadBuiltIn() {
+  DATA = { [BUILT_IN_CROP]: {} };
+  for (const [name, vals] of Object.entries(BUILT_IN_DATA)) {
+    const key = name.toUpperCase();
+    DISPLAY_NAME[key] = DISPLAY_NAME[key] || name;
+    DATA[BUILT_IN_CROP][key] = {};
+    vals.forEach((v, i) => { if (v != null) DATA[BUILT_IN_CROP][key][BUILT_IN_YEARS[i]] = v; });
+  }
+}
+
+// Turn rows of {year, county, value, crop} (from CSV or API) into DATA.
+function mergeRows(rows) {
+  let added = 0; const touched = new Set();
+  const byCropYear = {};
+  for (const r of rows) {
+    const v = parseValue(r.value);
+    if (v == null || !r.county || !r.year) continue;
+    let key = r.county.trim().toUpperCase();
+    if (key.startsWith("OTHER")) key = OTHER_KEY;   // Quick Stats: "OTHER (COMBINED) COUNTIES"
+    const crop = (r.crop || BUILT_IN_CROP).toUpperCase();
+    const year = +r.year;
+    (byCropYear[crop] ||= {});
+    (byCropYear[crop][year] ||= []).push([key, v]);
+  }
+  for (const [crop, years] of Object.entries(byCropYear)) {
+    DATA[crop] ||= {};
+    for (const [year, list] of Object.entries(years)) {
+      // A loaded year replaces that whole year for this crop (so nothing is double counted).
+      for (const k of Object.keys(DATA[crop])) delete DATA[crop][k][year];
+      for (const [key, v] of list) {
+        DATA[crop][key] ||= {};
+        DATA[crop][key][year] = (DATA[crop][key][year] || 0) + v;
+        if (!DISPLAY_NAME[key]) DISPLAY_NAME[key] = titleCase(key);
+        added++;
+      }
+      touched.add(`${titleCase(crop)} ${year}`);
+    }
+  }
+  return { added, touched: [...touched].sort() };
+}
+
+// Quick Stats values look like "54,578,000"; "(D)" means withheld and "(Z)" means less than half a unit.
+function parseValue(s) {
+  if (s == null) return null;
+  const t = String(s).replace(/,/g, "").trim();
+  if (!t || t.startsWith("(")) return null;
+  const n = Number(t);
+  return Number.isFinite(n) ? n : null;
+}
+function titleCase(s) { return s.toLowerCase().replace(/\b([a-z])/g, m => m.toUpperCase()); }
+
+/* ---------------- CSV loading (Quick Stats "Spreadsheet" export) ---------------- */
+function parseCSV(text) {
+  const rows = []; let row = [], field = "", q = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (q) {
+      if (c === '"') { if (text[i+1] === '"') { field += '"'; i++; } else q = false; }
+      else field += c;
+    } else if (c === '"') q = true;
+    else if (c === ",") { row.push(field); field = ""; }
+    else if (c === "\n" || c === "\r") {
+      if (c === "\r" && text[i+1] === "\n") i++;
+      row.push(field); field = ""; if (row.some(x => x !== "")) rows.push(row); row = [];
+    } else field += c;
+  }
+  row.push(field); if (row.some(x => x !== "")) rows.push(row);
+  return rows;
+}
+function rowsFromQuickStatsCSV(text) {
+  const table = parseCSV(text);
+  const head = table[0].map(h => h.trim().toLowerCase());
+  const col = name => head.indexOf(name);
+  const iYear = col("year"), iCounty = col("county"), iValue = col("value");
+  const iItem = col("data item"), iComm = col("commodity"), iState = col("state"), iPeriod = col("period");
+  if (iYear < 0 || iCounty < 0 || iValue < 0) throw new Error("The CSV needs Year, County and Value columns.");
+  const out = [];
+  for (const r of table.slice(1)) {
+    if (iState >= 0 && r[iState] && r[iState].toUpperCase() !== "MINNESOTA") continue;
+    if (iPeriod >= 0 && r[iPeriod] && r[iPeriod].toUpperCase() !== "YEAR") continue; // skip forecasts by month
+    const item = iItem >= 0 ? r[iItem] : "";
+    if (item && !/PRODUCTION, MEASURED IN BU/i.test(item)) continue;   // keep production in bushels only
+    const crop = item ? item.split(" - ")[0] : (iComm >= 0 ? r[iComm] : BUILT_IN_CROP);
+    out.push({ year: r[iYear], county: r[iCounty], value: r[iValue], crop });
+  }
+  return out;
+}
+
+/* ---------------- Live API (optional; browser security may block it) ---------------- */
+async function fetchFromAPI(key) {
+  const url = "https://quickstats.nass.usda.gov/api/api_GET/?" + new URLSearchParams({
+    key, source_desc: "SURVEY", sector_desc: "CROPS", commodity_desc: "CORN",
+    statisticcat_desc: "PRODUCTION", unit_desc: "BU", agg_level_desc: "COUNTY",
+    state_alpha: "MN", year__GE: "2015", format: "JSON"
+  });
+  const res = await fetch(url);
+  if (!res.ok) throw new Error("Quick Stats answered " + res.status);
+  const json = await res.json();
+  return (json.data || [])
+    .filter(d => (d.reference_period_desc || "YEAR") === "YEAR")
+    .map(d => ({ year: d.year, county: d.county_name, value: d.Value, crop: (d.short_desc || "").split(" - ")[0] }));
+}
+
+/* ==========================================================================
+   CALCULATIONS
+   ========================================================================== */
+const $ = id => document.getElementById(id);
+const fmt = n => n == null ? "–" : Math.round(n).toLocaleString("en-US");
+const fmtM = n => (n / 1e6).toLocaleString("en-US", { maximumFractionDigits: n >= 1e8 ? 0 : 1 }) + "M";
+
+function yearsFor(crop) {
+  const ys = new Set();
+  for (const c of Object.values(DATA[crop] || {})) for (const y of Object.keys(c)) ys.add(+y);
+  return [...ys].sort((a, b) => a - b);
+}
+function stateTotal(crop, year) {   // every row incl. "Other (combined)" = state total
+  let s = 0; for (const c of Object.values(DATA[crop])) s += c[year] || 0; return s;
+}
+
+// Rank counties for the chosen crop and year(s).
+function computeRanking(crop, years) {
+  const totals = Object.fromEntries(years.map(y => [y, stateTotal(crop, y)]));
+  const rows = [];
+  for (const [key, byYear] of Object.entries(DATA[crop])) {
+    if (key === OTHER_KEY) continue;
+    const have = years.filter(y => byYear[y] != null);
+    if (!have.length) continue;
+    const avg = have.reduce((s, y) => s + byYear[y], 0) / have.length;
+    const stateAvg = have.reduce((s, y) => s + totals[y], 0) / have.length;
+    rows.push({ key, name: DISPLAY_NAME[key] || titleCase(key), district: DISTRICT_OF[key] || "–",
+                avg, share: avg / stateAvg, partial: have.length < years.length, yearsUsed: have });
+  }
+  rows.sort((a, b) => b.share - a.share);
+  rows.forEach((r, i) => r.rank = i + 1);
+  return rows;
+}
+
+function planning(share) {
+  const total = +$("stateTotal").value || 0;
+  const haul = Math.min(100, Math.max(0, +$("haulPct").value || 0)) / 100;
+  const perTruck = Math.max(1, +$("buPerTruck").value || 1000);
+  const est = share * total;
+  return { est, trucks: est * haul / perTruck, storage: est * haul };
+}
+
+/* ==========================================================================
+   CONTROLS
+   ========================================================================== */
+function fillSelect(sel, options, keep) {
+  const prev = keep ? sel.value : null;
+  sel.innerHTML = options.map(([v, t]) => `<option value="${v}">${t}</option>`).join("");
+  if (prev && options.some(([v]) => v === prev)) sel.value = prev;
+}
+function refreshControls() {
+  fillSelect($("cropSel"), Object.keys(DATA).map(c => [c, titleCase(c)]), true);
+  const ys = yearsFor($("cropSel").value);
+  fillSelect($("yearSel"),
+    [["all", `Average of ${ys.join(", ")}`], ...ys.slice().reverse().map(y => [String(y), String(y)])], true);
+  const counties = Object.keys(DATA[$("cropSel").value]).filter(k => k !== OTHER_KEY)
+    .map(k => [k, DISPLAY_NAME[k] || titleCase(k)]).sort((a, b) => a[1].localeCompare(b[1]));
+  fillSelect($("countySel"), [["all", "All counties (ranking)"], ...counties], true);
+}
+
+/* ==========================================================================
+   RENDER
+   ========================================================================== */
+let currentRows = [];
+function render() {
+  const crop = $("cropSel").value;
+  const allYears = yearsFor(crop);
+  const yv = $("yearSel").value;
+  const years = yv === "all" ? allYears : [+yv];
+  const county = $("countySel").value;
+  const topN = +$("topN").value;
+  $("topNLabel").textContent = topN;
+
+  const rows = computeRanking(crop, years);
+  currentRows = rows;
+  const basis = yv === "all" ? `avg of ${years.join(", ")}` : yv;
+  $("thBasis").textContent = `Production, ${basis} (bu)`;
+
+  // Headline tiles
+  const top3 = rows.slice(0, 3), top10 = rows.slice(0, 10);
+  const top10share = top10.reduce((s, r) => s + r.share, 0);
+  const t10 = planning(top10share);
+  $("answer").innerHTML = `
+    <div class="tile"><div class="label">Send the most to</div>
+      <div class="big">${top3.map(r => r.name).join(", ")}</div>
+      <div class="note">Largest shares of the state crop (${basis})</div></div>
+    <div class="tile"><div class="label">Top 10 counties' share</div>
+      <div class="big">${(top10share * 100).toFixed(0)}%</div>
+      <div class="note">of Minnesota corn for grain</div></div>
+    <div class="tile"><div class="label">Top 10: est. truckloads</div>
+      <div class="big">${fmt(t10.trucks)}</div>
+      <div class="note">at ${fmt(+$("buPerTruck").value)} bu per load</div></div>
+    <div class="tile"><div class="label">Top 10: storage needed</div>
+      <div class="big">${fmtM(t10.storage)} bu</div>
+      <div class="note">from a ${fmtM(+$("stateTotal").value || 0)} bu state crop</div></div>`;
+
+  if (county === "all") drawRanking(rows.slice(0, topN), basis);
+  else drawCountyTrend(crop, county, allYears);
+
+  // Table (always the full ranking; the selected county is highlighted)
+  $("tbody").innerHTML = rows.map(r => {
+    const p = planning(r.share);
+    const hl = r.key === county ? ' style="background:var(--surface-0);font-weight:650"' : "";
+    return `<tr${hl}><td>${r.rank}</td><td>${r.name}${r.partial ? ' <span class="flag">*</span>' : ""}</td>
+      <td>${r.district}</td><td>${fmt(r.avg)}</td><td>${(r.share * 100).toFixed(2)}%</td>
+      <td>${fmt(p.est)}</td><td>${fmt(p.trucks)}</td><td>${fmt(p.storage)}</td></tr>`;
+  }).join("");
+}
+
+/* ---- Tooltip helpers ---- */
+const tip = $("tip");
+function showTip(e, html) { tip.innerHTML = html; tip.style.display = "block"; moveTip(e); }
+function moveTip(e) {
+  const pad = 14, w = tip.offsetWidth, h = tip.offsetHeight;
+  let x = e.clientX + pad, y = e.clientY + pad;
+  if (x + w > innerWidth - 8) x = e.clientX - w - pad;
+  if (y + h > innerHeight - 8) y = e.clientY - h - pad;
+  tip.style.left = x + "px"; tip.style.top = y + "px";
+}
+function hideTip() { tip.style.display = "none"; }
+function svgEl(tag, attrs, parent) {
+  const el = document.createElementNS("http://www.w3.org/2000/svg", tag);
+  for (const [k, v] of Object.entries(attrs)) el.setAttribute(k, v);
+  if (parent) parent.appendChild(el); return el;
+}
+function niceMax(v) {
+  const p = Math.pow(10, Math.floor(Math.log10(v))); const m = v / p;
+  const steps = [1, 1.2, 1.5, 2, 2.5, 3, 4, 5, 6, 8, 10];
+  return steps.find(x => m <= x + 1e-9) * p;
+}
+
+/* ---- Chart 1: horizontal bars, top N counties ---- */
+function drawRanking(rows, basis) {
+  // Bar length = estimated 2026 bushels (county share x statewide number), so longer bar = higher rank.
+  $("chartTitle").textContent = `Top ${rows.length} counties: estimated 2026 corn to move and store`;
+  $("chartSub").textContent = `Bushels. County share of the state crop (${basis}) × the statewide number above. Hover for details; click a bar to see that county's history.`;
+  rows = rows.map(r => ({ ...r, est: planning(r.share).est }));
+  const W = 1040, rowH = 26, top = 26, left = 150, right = 90, bottom = 8;
+  const H = top + rows.length * rowH + bottom;
+  const max = niceMax(Math.max(1, ...rows.map(r => r.est)));
+  const x = v => left + (v / max) * (W - left - right);
+  const box = $("chart"); box.innerHTML = "";
+  const svg = svgEl("svg", { viewBox: `0 0 ${W} ${H}`, role: "img",
+    "aria-label": `Bar chart of top ${rows.length} Minnesota counties by estimated 2026 corn bushels` }, box);
+  // Grid + axis labels (recessive)
+  for (let i = 0; i <= 4; i++) {
+    const v = max * i / 4, gx = x(v);
+    svgEl("line", { x1: gx, x2: gx, y1: top - 6, y2: H - bottom, stroke: "var(--grid)", "stroke-width": 1 }, svg);
+    const t = svgEl("text", { x: gx, y: 14, "text-anchor": "middle", "font-size": 12, fill: "var(--text-muted)" }, svg);
+    t.textContent = v === 0 ? "0" : fmtM(v);
+  }
+  rows.forEach((r, i) => {
+    const y = top + i * rowH, bh = 16, by = y + (rowH - bh) / 2;
+    const name = svgEl("text", { x: left - 10, y: by + bh / 2 + 4, "text-anchor": "end", "font-size": 13, fill: "var(--text-primary)" }, svg);
+    name.textContent = r.name + (r.partial ? " *" : "");
+    // Bar: square at the baseline, 4px rounded at the data end
+    const w = Math.max(2, x(r.est) - left), rr = Math.min(4, w);
+    svgEl("path", { d: `M${left},${by} H${left + w - rr} Q${left + w},${by} ${left + w},${by + rr} V${by + bh - rr} Q${left + w},${by + bh} ${left + w - rr},${by + bh} H${left} Z`,
+      fill: "var(--series-1)" }, svg);
+    if (i < 5) { // direct-label only the leaders
+      const v = svgEl("text", { x: left + w + 6, y: by + bh / 2 + 4, "font-size": 12, fill: "var(--text-secondary)" }, svg);
+      v.textContent = fmtM(r.est);
+    }
+    // Hit target: the whole row, bigger than the bar
+    const hit = svgEl("rect", { x: 0, y, width: W, height: rowH, fill: "transparent", style: "cursor:pointer" }, svg);
+    const p = planning(r.share);
+    const html = `<b>#${r.rank} ${r.name}</b> · ${r.district}<br>
+      Production (${basis}): <b>${fmt(r.avg)}</b> bu<br>
+      Share of state: <b>${(r.share * 100).toFixed(2)}%</b><br>
+      2026 est.: ${fmt(p.est)} bu<br>Truckloads: ${fmt(p.trucks)} · Storage: ${fmtM(p.storage)} bu
+      ${r.partial ? `<br><span class="flag">Published years: ${r.yearsUsed.join(", ")}</span>` : ""}`;
+    hit.addEventListener("mouseenter", e => showTip(e, html));
+    hit.addEventListener("mousemove", moveTip);
+    hit.addEventListener("mouseleave", hideTip);
+    hit.addEventListener("click", () => { $("countySel").value = r.key; hideTip(); render(); });
+  });
+}
+
+/* ---- Chart 2: one county over the years ---- */
+function drawCountyTrend(crop, key, years) {
+  const name = DISPLAY_NAME[key] || titleCase(key);
+  const byYear = DATA[crop][key] || {};
+  const r = currentRows.find(x => x.key === key);
+  $("chartTitle").textContent = `${name} County: corn for grain production by year`;
+  $("chartSub").textContent = r
+    ? `Rank #${r.rank} of ${currentRows.length} · ${r.district} district · ${(r.share * 100).toFixed(2)}% of the state crop. Pick "All counties" to go back to the ranking.`
+    : "";
+  const W = 1040, H = 320, top = 30, left = 70, right = 20, bottom = 40;
+  const vals = years.map(y => byYear[y] ?? null);
+  const max = niceMax(Math.max(1, ...vals.filter(v => v != null)));
+  const band = (W - left - right) / years.length, bw = Math.min(90, band * 0.55);
+  const yS = v => top + (1 - v / max) * (H - top - bottom);
+  const box = $("chart"); box.innerHTML = "";
+  const svg = svgEl("svg", { viewBox: `0 0 ${W} ${H}`, role: "img", "aria-label": `${name} County corn production by year` }, box);
+  for (let i = 0; i <= 4; i++) {
+    const v = max * i / 4, gy = yS(v);
+    svgEl("line", { x1: left, x2: W - right, y1: gy, y2: gy, stroke: "var(--grid)", "stroke-width": 1 }, svg);
+    const t = svgEl("text", { x: left - 8, y: gy + 4, "text-anchor": "end", "font-size": 12, fill: "var(--text-muted)" }, svg);
+    t.textContent = v === 0 ? "0" : fmtM(v);
+  }
+  years.forEach((y, i) => {
+    const cx = left + band * i + band / 2, v = vals[i];
+    const lbl = svgEl("text", { x: cx, y: H - bottom + 20, "text-anchor": "middle", "font-size": 13, fill: "var(--text-secondary)" }, svg);
+    lbl.textContent = y;
+    let html;
+    if (v == null) {
+      const t = svgEl("text", { x: cx, y: yS(0) - 8, "text-anchor": "middle", "font-size": 12, fill: "var(--text-muted)" }, svg);
+      t.textContent = "not published";
+      html = `<b>${name}, ${y}</b><br>NASS withheld this county's number this year.`;
+    } else {
+      const bx = cx - bw / 2, by = yS(v), bh = yS(0) - by, rr = Math.min(4, bh);
+      svgEl("path", { d: `M${bx},${yS(0)} V${by + rr} Q${bx},${by} ${bx + rr},${by} H${bx + bw - rr} Q${bx + bw},${by} ${bx + bw},${by + rr} V${yS(0)} Z`,
+        fill: "var(--series-1)" }, svg);
+      const t = svgEl("text", { x: cx, y: by - 8, "text-anchor": "middle", "font-size": 12, fill: "var(--text-secondary)" }, svg);
+      t.textContent = fmtM(v);
+      const st = stateTotal(crop, y);
+      html = `<b>${name}, ${y}</b><br>${fmt(v)} bu<br>${(v / st * 100).toFixed(2)}% of Minnesota's ${fmtM(st)} bu`;
+    }
+    const hit = svgEl("rect", { x: left + band * i, y: top, width: band, height: H - top - bottom + 24, fill: "transparent" }, svg);
+    hit.addEventListener("mouseenter", e => showTip(e, html));
+    hit.addEventListener("mousemove", moveTip);
+    hit.addEventListener("mouseleave", hideTip);
+  });
+  svgEl("line", { x1: left, x2: W - right, y1: yS(0), y2: yS(0), stroke: "var(--text-muted)", "stroke-width": 1 }, svg);
+}
+
+/* ==========================================================================
+   WIRING
+   ========================================================================== */
+function setStatus(msg) { $("status").textContent = msg; }
+
+$("cropSel").addEventListener("change", () => { refreshControls(); render(); });
+for (const id of ["yearSel", "countySel", "topN", "stateTotal", "haulPct", "buPerTruck"])
+  $(id).addEventListener("input", render);
+
+$("csvFile").addEventListener("change", async e => {
+  const f = e.target.files[0]; if (!f) return;
+  try {
+    const res = mergeRows(rowsFromQuickStatsCSV(await f.text()));
+    if (!res.added) throw new Error("No county production rows (bushels) for Minnesota were found in that file.");
+    refreshControls(); render();
+    setStatus(`Loaded ${res.added} county values from ${f.name} (${res.touched.join(", ")}). Held in this tab only.`);
+  } catch (err) { setStatus("Couldn't read that CSV: " + err.message); }
+  e.target.value = "";
+});
+
+$("apiBtn").addEventListener("click", async () => {
+  const key = $("apiKey").value.trim();
+  if (!key) { setStatus("Paste your free Quick Stats API key first (quickstats.nass.usda.gov/api)."); return; }
+  setStatus("Asking Quick Stats…");
+  try {
+    const res = mergeRows(await fetchFromAPI(key));
+    refreshControls(); render();
+    setStatus(`Loaded ${res.added} county values from the Quick Stats API (${res.touched.join(", ")}). Held in this tab only.`);
+  } catch (err) {
+    setStatus("The API request didn't work (" + err.message + "). Browsers often block direct calls to Quick Stats. " +
+              "Use 'Get Data › Spreadsheet' on the Quick Stats site and load the CSV instead.");
+  }
+});
+
+$("resetBtn").addEventListener("click", () => {
+  loadBuiltIn(); refreshControls(); render(); setStatus("Back to the built-in 2021–2023 NASS figures.");
+});
+
+$("dlBtn").addEventListener("click", () => {
+  const head = ["Rank", "County", "Ag district", $("thBasis").textContent, "Share of state", "2026 est. (bu)", "Truckloads", "Storage needed (bu)"];
+  const lines = [head, ...currentRows.map(r => {
+    const p = planning(r.share);
+    return [r.rank, r.name + (r.partial ? " *" : ""), r.district, Math.round(r.avg), (r.share * 100).toFixed(2) + "%",
+            Math.round(p.est), Math.round(p.trucks), Math.round(p.storage)];
+  })].map(row => row.map(v => `"${String(v).replace(/"/g, '""')}"`).join(","));
+  const blob = new Blob([lines.join("\n")], { type: "text/csv" });
+  const a = Object.assign(document.createElement("a"), { href: URL.createObjectURL(blob), download: "mn_corn_county_planning.csv" });
+  a.click(); URL.revokeObjectURL(a.href);
+});
+
+// Start up
+loadBuiltIn();
+$("stateTotal").value = DEFAULT_STATE_PLANNING_BU;
+refreshControls();
+render();
+</script>
+</body>
+</html>
+
+
+AI Log
+can you Build one self-contained HTML file that answers this question for a Minnesota agriculture supply chain: Which Minnesota counties should we send the most trucks and storage space to during this year’s corn harvest?
+Use this data source: https://quickstats.nass.usda.gov/  The fields I need are Year, County, Value (corn grain production in bushels).
+Add a dropdown or slider to filter by [county / year / crop] and a chart that updates when I change it.
+Add comments that explain, in plain English, where the data comes from and where it is stored.
+
+I’ll pull Minnesota county corn grain production from USDA NASS Quick Stats and build the HTML file around it. First I’m checking whether I can reach the data from here.
+
+The NASS Minnesota “County Estimates” reports carry the same Quick Stats numbers as county tables, two years per report. I’ll fetch them.
+
+I built mn_corn_harvest_logistics.html, a single file that opens in any browser. Based on 2021–2023 USDA county data, Renville, Martin and Redwood counties should get the most trucks and storage. Faribault, Nobles, Mower, Jackson, Freeborn, Blue Earth and Swift fill out the top 10. Those ten counties grow about 28% of the state’s corn.
+
+The data isn’t from a live Quick Stats pull. My workspace couldn’t connect to USDA’s servers, and the Quick Stats API needs a key. Instead I copied the county numbers from USDA’s Minnesota “Corn County Estimates” reports, which publish the same Quick Stats figures. The county numbers for 2021, 2022 and 2023 add up exactly to USDA’s published state totals.
+
+The newest county numbers are missing. I couldn’t reach the 2024 and 2025 county reports. To add them, export a CSV from Quick Stats (the steps are on the page) and load it with the “Load Quick Stats CSV” button. There’s also a box for an API key, but browsers may block that call, so the CSV is the dependable route.
+
+How the page works:
+
+Filters: a year dropdown (one year or a multi-year average), a county dropdown (pick one to see its year-by-year chart), and a slider for how many counties the chart shows. The crop dropdown only lists corn grain for now; other bushel-measured crops appear in it if your CSV includes them.
+Planning numbers: each county’s share of past production is applied to a statewide crop number for this year. That gives estimated bushels, truckloads and storage per county, in the chart and in a table you can download.
+Settings you should change: the statewide number defaults to the 2025 total of 1.70 billion bushels, a record. Swap in USDA’s latest 2026 forecast or your own figure. Trucks assume 1,000 bushels per load and 100% of the crop hauled at harvest; lower that percentage if farms keep grain in their own bins.
+Gaps: USDA withholds some counties in some years, mostly to protect individual farms’ privacy. For example, Martin and Faribault have no 2023 number. Those counties are marked with * and averaged over the years USDA did publish.
+Comments: the top of the file explains in plain English where the numbers come from and where they’re stored. In short, the numbers are built into the file, and anything you load stays in your browser tab and is never uploaded.
+The ranking is based on past production only. It doesn’t account for this year’s weather by county or where elevators and bins already are.
+
+Sources:
+
+USDA NASS Quick Stats
+NASS Minnesota Corn County Estimates, Feb 2023 (2021–2022)
+NASS Minnesota Corn County Estimates, Feb 2024 (2022–2023)
+NASS 2025 State Agriculture Overview, Minnesota
+Mn corn harvest logistics
+Code
+·HTML
+how do i know you used the real data and did you use sample data?
+
+Yes, the county numbers in the file are real USDA figures, and no sample data is built into it. Here’s what that rests on and how you can check it yourself.
+
+Where the numbers came from. My workspace couldn’t connect to Quick Stats, so I didn’t pull a live query. Instead I used a web tool to read two official USDA reports, the Minnesota “Corn County Estimates” PDFs, and copy out the county production tables. Those reports publish the same county numbers that Quick Stats holds. The one weak point is that the tool read the PDFs for me, so a copying mistake was possible. That’s why I ran these checks:
+
+Totals match exactly. For 2021, 2022 and 2023, the counties plus USDA’s “Other (combined) counties” row add up to USDA’s published state totals with zero difference (1,387,680,000, 1,460,550,000 and 1,513,300,000 bushels). One wrong county number would break that.
+Two reports agree. The 2022 figures appear in both reports, and the numbers I spot-checked (such as Renville and Becker) are identical in each.
+They match USDA’s own text. The 2024 report says Renville led 2023 with 54.6 million bushels, followed by Redwood (41.9M), Jackson (39.1M), Swift (38.8M) and Nobles (38.5M). Those are the numbers in the file.
+What isn’t data from USDA:
+
+One test file, not in the page. To test the CSV upload button, I made a small fake file with invented 2025 numbers (for example, Renville at 60 million). It stayed in my workspace and is not in the HTML file. Every time the page opens, it starts from the real 2021–2023 figures.
+Assumptions you can change: 1,000 bushels per truck and 100% of the crop hauled at harvest.
+The statewide default: 1,696,440,000 bushels is USDA’s real 2025 total. It’s only a stand-in, because USDA hasn’t released final 2026 numbers yet.
+District names come from my own knowledge of USDA’s districts. They’re labels only and don’t change any numbers.
+How to check it yourself:
+
+Open the 2024 report and compare a few counties with the page’s table. Set Year to 2023 first. For example, Renville should be 54,578,000 and Fillmore 30,795,000.
+Better still, export the same query from Quick Stats as a CSV for 2021–2023 and load it with the page’s CSV button. It replaces the built-in numbers for those years, so if nothing in the table changes, the built-in numbers match Quick Stats exactly.
+The 2024 and 2025 county numbers are the real gap, because I couldn’t get them. Loading a Quick Stats export of those years would fill that in.
