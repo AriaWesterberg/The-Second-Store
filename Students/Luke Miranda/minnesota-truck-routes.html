@@ -4,7 +4,8 @@
 <!-- Source: BTS Freight Analysis Framework 6, https://faf.ornl.gov/faf6/dtt_total.aspx
      Downloaded November 12, 2026. Both Minnesota origin zones were included.
      Destination zones were grouped by state and values summed by commodity.
-     The CSV below is also saved as minnesota-truck-shipments-2022.csv. -->
+     The CSV stores the destination state, FAF commodity code, and shipment value in millions of 2022 dollars.
+     A copy is embedded in this HTML for offline use and saved separately as minnesota-truck-shipments-2022.csv. -->
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Minnesota Agricultural Truck Routes</title>
@@ -53,6 +54,7 @@
   </section>
   <footer>Source <a href="https://faf.ornl.gov/faf6/dtt_total.aspx">Freight Analysis Framework 6</a>, U.S. Bureau of Transportation Statistics. Historical shipment value helps identify markets to evaluate.</footer>
 </main>
+<!-- The saved FAF6 rows are embedded here so the page can open as a single file. -->
 <script type="text/plain" id="embedded-csv">
 destination_state,commodity_code,million_dollars_2022
 Alabama,04,0.0269
@@ -176,6 +178,7 @@ Wyoming,04,2.0069
   const format = new Intl.NumberFormat("en-US", { maximumFractionDigits: 3 });
 
   // The page keeps the cleaned shipment rows here in memory while it is open.
+  // ME: Data is saved through an array named "shipments" called let shipments.
   let shipments = [];
 
   function parseCsv(text) {
@@ -217,6 +220,7 @@ Wyoming,04,2.0069
       Number.isFinite(row.shipmentValue) && row.shipmentValue > 0);
   }
 
+  // ME: Data is changed through a function called function renderChart. This is done through data filtering, such as drop down menu or top n filtering.
   function renderChart() {
     // Filter the stored rows by commodity, add up shipment value per state, and rank the destinations.
     const totals = new Map();
@@ -250,38 +254,44 @@ Wyoming,04,2.0069
     }
   }
 
-  function loadCsv(text, name) {
-    try {
-      shipments = readShipments(text);
+  function loadCsv(rows, name) {
+    const selection = commodityInput.value;
+    shipments = rows;
+    if (shipments.length) {
       const available = new Set(shipments.map(shipment => shipment.commodity));
       commodityInput.replaceChildren(new Option("All included commodities", "all"));
       for (const [code, label] of commodities) {
         if (available.has(code)) commodityInput.add(new Option(label, code));
       }
+      commodityInput.value = available.has(selection) ? selection : "all";
       commodityInput.disabled = false;
       status.className = "";
       status.textContent = `Loaded ${shipments.length.toLocaleString("en-US")} shipment records from ${name}.`;
-      renderChart();
-    } catch (error) {
-      shipments = [];
+    } else {
       commodityInput.replaceChildren();
       commodityInput.disabled = true;
       status.className = "error";
-      status.textContent = error.message;
-      renderChart();
+      status.textContent = "The saved FAF6 snapshot contains no shipment data.";
     }
+    renderChart();
   }
 
   commodityInput.addEventListener("change", renderChart);
 
+  // ME: the page data is is embedded into the HTML file through the CSV file. This makes data saved to the HTML file directly.
   // Read the bundled CSV first so this page opens and works offline.
-  loadCsv(document.querySelector("#embedded-csv").textContent, "the bundled FAF6 snapshot");
+  const embeddedCsv = document.querySelector("#embedded-csv").textContent;
+  loadCsv(readShipments(embeddedCsv), "the bundled FAF6 snapshot");
 
   // On a website, use the saved CSV beside the page when it is available.
   if (location.protocol === "http:" || location.protocol === "https:") {
     fetch("minnesota-truck-shipments-2022.csv")
       .then(response => response.ok ? response.text() : "")
-      .then(csv => { if (csv && readShipments(csv).length) loadCsv(csv, "the saved FAF6 CSV"); })
+      .then(csv => {
+        if (!csv) return;
+        const rows = readShipments(csv);
+        if (rows.length) loadCsv(rows, "the saved FAF6 CSV");
+      })
       .catch(() => {});
   }
 </script>
