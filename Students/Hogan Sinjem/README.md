@@ -1,5 +1,3 @@
-[README (1).md](https://github.com/user-attachments/files/35112096/README.1.md)[Upl# UNFI Minnesota Winter Delivery Planning
-
 ## Decision question
 
 Should UNFI adjust its delivery schedules during severe Minnesota winter weather to avoid delays and reduce transportation costs?
