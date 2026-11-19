@@ -27,3 +27,31 @@ The first message supplied the Canvas instructions for “Building a Data Page,�
 - The assistant independently summed the original export and checked the top results for each filter against the page. The first implementation used synthetic rows for code testing only. The bundled CSV is derived from the public FAF6 export.
 
 The user also provided the GitHub username lmiranda04.
+
+
+## Harvest to Screen follow-up prompts
+
+1. Shared the Harvest to Screen instructions and asked, “this is an assignment i have to get done for class. We did not have time to do the in class part of the assignment. Are you able to dig through my github to see my decision question for the first part?”
+2. “Okay and can we use the same dataset for part 2?”
+3. “now that we have a decision question and the data, lets more onto the next part. Build one self-contained HTML file that answers this question for a Minnesota agriculture supply chain: [your question].
+   Use this data source: [URL or file name]. The fields I need are: [fields].
+   Add a dropdown or slider to filter by [county / year / crop] and a chart that updates when I change it.
+   Add comments that explain, in plain English, where the data comes from and where it is stored.”
+4. Shared the “Check before you leave” checklist about real data, sample values, and where the data lives. Asked, “can you verify this?”
+5. Shared step 4, which asks for a draft commit, and asked, “I have my github connected via a plugin. are you able to commit this?”
+6. “so is this the same exact thing as the previous assignment?”
+7. “so i do not have to committ anything?”
+8. Shared the Part 2 instructions about stored data, three comments, the AI log, and the Canvas reflection. Asked, “okay can you make sure the data fits into this criteria?”
+9. “how do i add the // me: commands?”
+10. “okay, could you do this for me? I could just tell you what to put into the file.”
+11. “1. the page data is is embedded into the HTML file through the CSV file. This makes data saved to the HTML file directly. 2. Data is saved through an array named "shipments" called let shipments. 3. Data is changed through a function called function renderChart. This is done through data filtering, such as drop down menu or top n filtering.”
+12. “ok now what? do i just need the AI log? can you merge the AI log of this as well as the other one in my github?”
+13. “if possible, can you use firefox instead of brave?”
+
+## Verification and revisions
+
+- The original export contained 402 rows. The assistant recalculated shipment values by destination and commodity after excluding Minnesota destinations. All 111 saved values matched, and the embedded copy matched the saved CSV.
+- The source field is `million dollars in 2022`. The chart ranks estimated shipment value. Across all included commodities, Iowa leads at $2,969.5629 million. For animal feed, Wisconsin leads at $882.1005 million.
+- A JavaScript test checked all four dropdown options and both data-loading paths. The earlier draft could reset a dropdown selection if the external CSV finished loading after a selection. The revised page keeps the selected commodity.
+- The hosted page loads `minnesota-truck-shipments-2022.csv` from the same folder. It can also use the identical data embedded in the HTML, so it works if the original FAF6 site is offline.
+- Luke supplied the wording for the three `// ME:` comments. The assistant inserted those comments and checked that the HTML code and data stayed the same.
