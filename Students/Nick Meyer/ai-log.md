@@ -72,8 +72,3 @@ The AI did not write these. It pointed me to the three spots in the code, explai
 - No page errors appeared in the browser console in either mode.
 - The fake test CSV from prompt 1 is not in this folder or in the page.
 
-## Still to do (by me)
-
-- [x] Add my three `// ME:` comments in the HTML (done, see above).
-- [ ] Spot-check three counties against the [February 2024 NASS report](https://nass.usda.gov/statistics_by_state/Minnesota/Publications/County_Estimates/2024/MN-CtyEst-Corn-02-24.pdf) and note the results here.
-- [ ] Write the reflection in Canvas.
